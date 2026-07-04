@@ -1,267 +1,144 @@
-# AI Kubernetes Troubleshooting Agent - High Level Design (HLD)
+# 🤖 AI Kubernetes Troubleshooting Agent
 
-## Goal
-
-Build an AI-powered Kubernetes troubleshooting platform that can:
-
-- Investigate Kubernetes failures
-- Analyze logs, events, and cluster state
-- Identify root causes
-- Suggest fixes
-- Store investigation history
-- Be deployed publicly as a real application
+An AI-powered platform that automatically investigates Kubernetes failures, analyzes logs, events, and cluster state, identifies root causes, and suggests fixes — all through a live, deployable dashboard.
 
 ---
 
-# High Level Architecture
+## 📌 Overview
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                     │
-│                                                            │
-│  Pods | Deployments | Services | Events | Logs            │
-│                                                            │
-│  This is where failures happen and evidence exists         │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              │ kubectl / Kubernetes API
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                  Investigation Layer                      │
-│                                                            │
-│ Responsibility:                                            │
-│ - Connect to Kubernetes cluster                            │
-│ - Collect troubleshooting signals                          │
-│ - Gather debugging evidence                                │
-│                                                            │
-│ Components:                                                │
-│                                                            │
-│  1. Pod Inspector                                          │
-│     - Get pod health                                       │
-│     - Detect CrashLoopBackOff                              │
-│     - Detect Pending/Error states                          │
-│                                                            │
-│  2. Logs Collector                                         │
-│     - Read pod logs                                        │
-│     - Capture container errors                             │
-│                                                            │
-│  3. Events Analyzer                                        │
-│     - Read Kubernetes events                               │
-│     - Detect scheduling/image failures                     │
-│                                                            │
-│  4. Deployment Inspector                                   │
-│     - Inspect deployment status                            │
-│     - Verify rollout health                                │
-│                                                            │
-│  5. Network Inspector                                      │
-│     - Check services                                       │
-│     - Validate selectors                                   │
-│     - Investigate DNS/networking issues                    │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              │ Structured Investigation Data
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                  AI Kubernetes Agent                      │
-│                                                            │
-│ Responsibility:                                            │
-│ - Understand Kubernetes failures                           │
-│ - Correlate logs + events + deployment state               │
-│ - Identify root cause                                      │
-│ - Recommend fixes                                          │
-│                                                            │
-│ Components:                                                │
-│                                                            │
-│  1. Prompt Builder                                         │
-│     - Convert investigation data into LLM prompt           │
-│                                                            │
-│  2. LLM Reasoning Layer                                    │
-│     - Uses OpenRouter API Key from InsForge                │
-│     - Supports models like:                                │
-│       - Claude                                              │
-│       - GPT                                                 │
-│       - DeepSeek                                            │
-│                                                            │
-│  3. Root Cause Analyzer                                    │
-│     - Detect primary issue                                 │
-│     - Correlate signals                                    │
-│                                                            │
-│  4. Fix Recommendation Engine                              │
-│     - Suggest kubectl fixes                                │
-│     - Recommend YAML updates                               │
-│                                                            │
-│  5. Confidence Scoring                                     │
-│     - Confidence % for diagnosis                           │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              │ Investigation Result
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                    InsForge Backend                       │
-│                                                            │
-│ Responsibility:                                            │
-│ - Authentication                                           │
-│ - Backend APIs                                             │
-│ - Investigation history                                    │
-│ - Realtime investigation updates                           │
-│                                                            │
-│ Components:                                                │
-│                                                            │
-│  1. Authentication                                         │
-│     - User login                                           │
-│                                                            │
-│  2. API Layer                                              │
-│     - Trigger investigations                               │
-│     - Return AI analysis                                   │
-│                                                            │
-│  3. Investigation History                                  │
-│     - Store previous incidents                             │
-│     - Save root cause reports                              │
-│                                                            │
-│  4. Realtime Updates                                       │
-│     - Live investigation progress                          │
-│                                                            │
-│ Example:                                                    │
-│  ✓ Checking pods                                           │
-│  ✓ Reading logs                                            │
-│  ✓ Analyzing events                                        │
-│  ✓ Finding root cause                                      │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              │ API Response
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                     Frontend Dashboard                    │
-│                                                            │
-│ Responsibility:                                            │
-│ - Trigger investigation                                    │
-│ - Show realtime progress                                   │
-│ - Display root cause                                       │
-│ - Show suggested fixes                                     │
-│ - Show investigation history                               │
-│                                                            │
-│ Example UI:                                                 │
-│                                                            │
-│ Incident: Payment Service Failure                          │
-│                                                            │
-│ Status: Investigating...                                   │
-│                                                            │
-│ ✓ Pods Checked                                             │
-│ ✓ Events Analyzed                                          │
-│ ✓ Logs Processed                                           │
-│                                                            │
-│ Root Cause: ImagePullBackOff                               │
-│                                                            │
-│ Suggested Fix:                                             │
-│ Update invalid image tag                                   │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              │ Deploy Entire App
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                     InsForge Deployment                   │
-│                                                            │
-│ Responsibility:                                            │
-│ - Deploy frontend                                          │
-│ - Deploy backend                                           │
-│ - Generate public URL                                      │
-│                                                            │
-│ Output:                                                     │
-│                                                            │
-│ https://ai-k8s-agent.public-url.app                        │
-│                                                            │
-│ Enables public access to the troubleshooting platform      │
-└────────────────────────────────────────────────────────────┘
-```
+Debugging a broken pod usually requires manually running multiple commands like:
 
-# End-to-End Workflow
+* `kubectl describe`
+* Checking logs
+* Inspecting events
+* Reviewing deployment YAMLs
 
-```text
-User clicks "Investigate Cluster"
-                │
-                ▼
-Frontend sends API request
-                │
-                ▼
-FastAPI Backend
-      (Orchestration Layer)
-                │
-                ├── Authenticate User (InsForge)
-                │
-                ▼
-Investigation Layer
-                │
-                ├── Check Pods
-                ├── Read Logs
-                ├── Analyze Events
-                ├── Inspect Deployments
-                └── Check Networking
-                │
-                ▼
-AI Kubernetes Agent
-                │
-                ▼
-LLM Reasoning
-      (OpenRouter via InsForge Key)
-                │
-                ▼
-Root Cause Analysis
-                │
-                ▼
-Suggested Fix Generated
-                │
-                ├── Save Investigation History
-                │        (InsForge)
-                │
-                ├── Realtime Progress Updates
-                │        (InsForge)
-                │
-                ▼
-Frontend Receives Result
-                │
-                ▼
-User sees Diagnosis
-```
+This project **automates the entire debugging workflow**.
 
-# Example Failure Flow
+---
 
-```text
-Issue:
-Payment service unavailable
+## 🚀 Key Features
 
-Agent Investigation:
+* 🔍 Automatically investigates Kubernetes failures
+* 📊 Analyzes logs, events, and live cluster state
+* 🧠 Uses LLMs to identify root causes
+* 🛠️ Suggests concrete fixes (kubectl commands / YAML updates)
+* 🗂️ Stores investigation history for future reference
+* 🌐 Deployable as a real, publicly accessible application
 
-✓ Pod Status Checked
-✓ Logs Collected
-✓ Events Analyzed
+---
 
-Detected Problem:
-CrashLoopBackOff
+## 🏗️ Architecture
 
-Root Cause:
-DATABASE_URL environment variable missing
+The system is organized into multiple layers:
 
-Confidence:
-94%
+* **Kubernetes Cluster**
+  Source of truth — pods, deployments, services, events, logs
 
-Suggested Fix:
-Update deployment.yaml and add secret reference
+* **Investigation Layer**
+  Collects evidence using:
 
-Prevention:
+  * Pod Inspector
+  * Logs Collector
+  * Events Analyzer
+  * Deployment Inspector
+  * Network Inspector
+
+* **AI Kubernetes Agent**
+  Builds prompts, reasons using LLMs, identifies root cause, and assigns confidence score
+
+* **Backend (InsForge)**
+  Handles authentication, APIs, investigation history, and real-time updates
+
+* **Frontend Dashboard**
+  Triggers investigations and displays results (root cause, fixes, progress)
+
+* **Deployment (InsForge)**
+  Deploys application and generates a public URL
+
+
+
+<img width="882" height="1280" alt="WhatsApp Image 2026-07-04 at 17 42 07" src="https://github.com/user-attachments/assets/2a0441e6-f9a9-4499-b08e-bd7c5d47940a" />
+
+
+
+
+
+
+
+
+
+
+
+🔄 End-to-End Workflow
+
+
+User triggers an investigation from the dashboard
+Investigation Layer collects cluster data
+AI Agent processes evidence using LLM
+Root cause is identified with confidence score
+Suggested fixes are generated
+Results are displayed in real-time on dashboard
+Investigation is stored for future reference
+
+
+
+## 🧪 Example: Failure Investigation
+
+**Issue:** Payment service unavailable
+
+### 🔍 Agent Investigation Steps
+
+* ✅ Pod status checked
+* ✅ Logs collected
+* ✅ Events analyzed
+
+### 🚨 Detected Problem
+
+`CrashLoopBackOff`
+
+### 🧠 Root Cause
+
+Missing `DATABASE_URL` environment variable
+
+### 📊 Confidence
+
+**94%**
+
+### 🛠️ Suggested Fix
+
+Update `deployment.yaml` and add the missing secret reference
+
+### 🛡️ Prevention
+
 Add startup validation checks
-```
 
-## Supported Kubernetes Problems
+---
 
-- CrashLoopBackOff
-- ImagePullBackOff
-- OOMKilled
-- Pending Pods
-- Resource Exhaustion
-- Deployment Rollout Failures
-- Service Selector Mismatch
-- DNS Resolution Problems
-- Readiness/Liveness Probe Failures
-- Networking Issues
+## 🛠️ Supported Kubernetes Problems
 
-```
+* CrashLoopBackOff
+* ImagePullBackOff
+* OOMKilled
+* Pending Pods
+* Resource Exhaustion
+* Deployment Rollout Failures
+* Service Selector Mismatch
+* DNS Resolution Issues
+* Readiness / Liveness Probe Failures
+* Networking Issues
+
+---
+
+## ⚙️ Tech Stack
+
+* **Orchestration:** FastAPI
+* **Cluster Access:** Kubernetes API / `kubectl`
+* **AI Reasoning:** OpenRouter (Claude, GPT, DeepSeek)
+* **Backend / Auth / Realtime / Storage:** InsForge
+* **Deployment:** InsForge (Public URL generation)
+
+
+
+
+
